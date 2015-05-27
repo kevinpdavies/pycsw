@@ -148,9 +148,9 @@ class OAIPMH(object):
                 start = end = None
                 LOGGER.info('Scanning temporal parameters')
                 if 'from' in kvp:
-                    start = 'dc:date >= %s' % kvp['from']
+                    start = 'dc:date >= \'%s\'::timestamp' % kvp['from']
                 if 'until' in kvp:
-                    end = 'dc:date <= %s' % kvp['until']
+                    end = 'dc:date <= \'%s\'::timestamp' % kvp['until']
                 if any([start is not None, end is not None]):
                     if all([start is not None, end is not None]):
                         time_query = '%s and %s' % (start, end)

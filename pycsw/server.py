@@ -2247,6 +2247,8 @@ class Csw(object):
                 val = util.getqattr(recobj, queryables[i]['dbcol'])
                 if not val:
                     val = ''
+		if i == 'dc:type':
+		    val = val.capitalize()
                 etree.SubElement(record, util.nspath_eval(i,
                 self.context.namespaces)).text = val
 
@@ -2274,11 +2276,11 @@ class Csw(object):
                     for link in links:
                         linkset = link.split(',')
                         etree.SubElement(record,
-                        util.nspath_eval('dct:references',
+                        util.nspath_eval('dc:relation',
                         self.context.namespaces),
                         scheme=linkset[2]).text = linkset[-1]
 
-                for i in ['dc:relation', 'dct:modified', 'dct:abstract']:
+                for i in ['dct:modified', 'dct:abstract']:
                     val = util.getqattr(recobj, queryables[i]['dbcol'])
                     if val is not None:
                         etree.SubElement(record,
@@ -2292,6 +2294,20 @@ class Csw(object):
                     if val:
                         etree.SubElement(record,
                         util.nspath_eval(i, self.context.namespaces)).text = val
+
+	        # write the dc:spatial bounding box
+                bb = getattr(recobj, 
+                    self.context.md_core_model['mappings']['pycsw:BoundingBox'])
+                spatial = write_DCMIbox(bb, self.context.namespaces)
+                if spatial is not None:
+		    record.append(spatial)
+
+	        # write the dc:coverage bounding box
+                if bb is not None:
+                    coverage = etree.Element(util.nspath_eval('dc:coverage', \
+                        self.context.namespaces))
+                    coverage.text = bb;
+                    record.append(coverage)
 
             # always write out ows:BoundingBox
             bboxel = write_boundingbox(getattr(recobj,
@@ -2583,6 +2599,41 @@ def write_boundingbox(bbox, nsmap):
             nsmap)).text = '%s %s' % (bbox2[3], bbox2[2])
 
             return boundingbox
+        else:
+            return None
+    else:
+        return None
+
+def write_DCMIbox(bbox, nsmap):
+    ''' Generate dc:spatial dcmiBox:box'''
+
+    if bbox is not None:
+        try:
+            bbox2 = util.wkt2geom(bbox)
+        except:
+            return None
+
+        if len(bbox2) == 4:
+            spatial = etree.Element(util.nspath_eval('dc:spatial', nsmap))
+            dcmiBoxns = {"dcmiBox": "http://dublincore.org/documents/2006/04/10/dcmi-box/"}
+            box = etree.SubElement(spatial, util.nspath_eval('dcmiBox:Box',
+                dcmiBoxns), name="Geographic", projection="EPSG:4326", \
+                nsmap=dcmiBoxns)
+
+            etree.SubElement(box, util.nspath_eval('dcmiBox:northlimit',
+                dcmiBoxns), units="decimal degrees").text = \
+	        "{:0.6f}".format(bbox2[3])
+            etree.SubElement(box, util.nspath_eval('dcmiBox:southlimit',
+                dcmiBoxns), units="decimal degrees").text = \
+		"{:0.6f}".format(bbox2[1])
+            etree.SubElement(box, util.nspath_eval('dcmiBox:eastlimit',
+                dcmiBoxns), units="decimal degrees").text = \
+		"{:0.6f}".format(bbox2[2])
+            etree.SubElement(box, util.nspath_eval('dcmiBox:westlimit',
+                dcmiBoxns), units="decimal degrees").text = \
+		"{:0.6f}".format(bbox2[0])
+
+            return spatial
         else:
             return None
     else:
